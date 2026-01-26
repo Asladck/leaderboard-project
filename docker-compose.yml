@@ -1,0 +1,49 @@
+services:
+  app:
+    build: .
+    container_name: leaderboard-app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  postgres:
+    image: postgres:16
+    container_name: leaderboard-postgres
+    environment:
+      POSTGRES_DB: leaderboard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: leaderboard-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  migrate:
+    image: migrate/migrate
+    container_name: leaderboard-migrate
+    depends_on:
+      - postgres
+    volumes:
+      - ./migrations:/migrations
+    command: [
+      "-path", "/migrations",
+      "-database",
+      "postgres://postgres:postgres@postgres:5432/leaderboard?sslmode=disable",
+      "up"
+    ]
+
+volumes:
+  postgres_data:
