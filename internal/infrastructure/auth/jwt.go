@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -73,11 +74,11 @@ func (m *TokenManager) newToken(
 // TOKEN PARSING    //
 //////////////////////
 
-func (m *TokenManager) ParseAccessToken(tokenStr string) (string, error) {
+func (m *TokenManager) ParseAccessToken(context context.Context, tokenStr string) (string, error) {
 	return m.parse(tokenStr, accessTokenType, m.accessKey)
 }
 
-func (m *TokenManager) ParseRefreshToken(tokenStr string) (string, error) {
+func (m *TokenManager) ParseRefreshToken(context context.Context, tokenStr string) (string, error) {
 	return m.parse(tokenStr, refreshTokenType, m.refreshKey)
 }
 

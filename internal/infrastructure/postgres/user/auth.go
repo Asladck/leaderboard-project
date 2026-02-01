@@ -6,6 +6,7 @@ import (
 	"OnlineLeadership/internal/infrastructure/postgres"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -21,15 +22,18 @@ func NewAuthRepository(db *sqlx.DB, log *logger.SlogLogger) *Auth {
 	}
 }
 
-func (r *Auth) CreateUser(ctx context.Context, user domain.User) (string, error) {
-	var id string
-	query := fmt.Sprintf("INSERT INTO %s (username,password_hash) values ($1,$2) RETURNING id", postgres.Users)
-	row := r.db.QueryRow(query, user.Username, user.Password)
+func (r *Auth) CreateUser(ctx context.Context, user domain.User) (uuid.UUID, error) {
+	var id uuid.UUID
+	query := fmt.Sprintf("INSERT INTO %s (username,password_hash,email) values ($1,$2,$3) RETURNING id", postgres.Users)
+	row := r.db.QueryRow(query, user.Username, user.Password, user.Email)
 	if err := row.Scan(&id); err != nil {
-		return "", err
+		r.log.Error(ctx, "creating user error ", err.Error())
+		return uuid.UUID{}, err
 	}
+	r.log.Info(ctx, "creating user successfully ")
 	return id, nil
 }
+
 func (r *Auth) GetUser(ctx context.Context, username, password string) (domain.User, error) {
 	var user domain.User
 	r.log.Info(ctx, username, password)

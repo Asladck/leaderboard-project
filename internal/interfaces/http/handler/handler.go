@@ -5,6 +5,8 @@ import (
 	"OnlineLeadership/internal/usecase"
 
 	"github.com/gin-gonic/gin"
+	files "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Handler struct {
@@ -19,27 +21,35 @@ func NewHandler(service *usecase.Service, log *logger.SlogLogger) *Handler {
 func (h *Handler) InitRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(files.Handler))
 
-	// ===== Auth group =====
+	// Auth endpoints
 	auth := r.Group("/auth")
 	{
 		auth.POST("/register", h.signUp)
 		auth.POST("/login", h.signIn)
 	}
 
-	//===== Score group ===== //apply auth middleware as needed, e.g.:
+	// Admin endpoints
+	admin := r.Group("/admin")
+	{
+		admin.POST("/create", h.createGame)
+		admin.GET("/games", h.getGames)
+	}
+
+	// Protected API endpoints
 	api := r.Group("/api", h.userIdentity)
 	{
 		score := api.Group("/score")
 		{
 			score.POST("/submit", h.submitScore)
 		}
-		//leaderboard := api.Group("/api/leaderboard")
-		//{
-		//	leaderboard.GET("/global", func(c *gin.Context) { h.globalLeaderboard(c.Writer, c.Request) })
-		//	leaderboard.GET("/me", func(c *gin.Context) { h.myRank(c.Writer, c.Request) })
-		//	leaderboard.GET("/top", func(c *gin.Context) { h.topPlayers(c.Writer, c.Request) })
-		//}
+		leaderboard := api.Group("/leaderboard")
+		{
+			leaderboard.GET("/global", h.globalLeaderboard)
+			leaderboard.GET("/my", h.myRank)
+			leaderboard.POST("/top", h.topPlayers)
+		}
 	}
 
 	return r

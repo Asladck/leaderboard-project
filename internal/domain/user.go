@@ -1,8 +1,11 @@
 package domain
 
+import "github.com/google/uuid"
+
+// User represents an application user.
 type User struct {
-	Id       string `json:"id" db:"id"`
-	Username string `json:"username" db:"username"`
-	Password string `json:"password" db:"password"`
-	Score    string `json:"score" db:"score"`
+	Id       uuid.UUID `json:"id" db:"id"`
+	Username string    `json:"username" db:"username"`
+	Email    string    `json:"email" db:"email"`
+	Password string    `json:"password" db:"password"`
 }

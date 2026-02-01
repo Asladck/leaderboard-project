@@ -1,0 +1,395 @@
+basePath: /
+definitions:
+  handler.CreateGameInput:
+    properties:
+      name:
+        example: Chess
+        type: string
+    required:
+    - name
+    type: object
+  handler.ErrorResponse:
+    properties:
+      message:
+        example: internal server error
+        type: string
+    type: object
+  handler.GameDTO:
+    properties:
+      id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+      name:
+        example: Chess
+        type: string
+    type: object
+  handler.GameIDResponse:
+    properties:
+      game_id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+    type: object
+  handler.GamesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/handler.GameDTO'
+        type: array
+    type: object
+  handler.LeaderboardResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/handler.LeaderboardUserDTO'
+        type: array
+    type: object
+  handler.LeaderboardUserDTO:
+    properties:
+      rank:
+        example: 1
+        type: integer
+      score:
+        example: 12345
+        type: integer
+      user_id:
+        example: 01234567-89ab-cdef-0123-456789abcdef
+        type: string
+    type: object
+  handler.LoginInput:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: john_doe
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handler.LoginResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  handler.RankResponse:
+    properties:
+      rank:
+        example: 1
+        type: integer
+    type: object
+  handler.RegisterInput:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      password:
+        example: password123
+        minLength: 6
+        type: string
+      username:
+        example: john_doe
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  handler.RegisterResponse:
+    properties:
+      user_id:
+        example: 01234567-89ab-cdef-0123-456789abcdef
+        type: string
+    type: object
+  handler.StatusResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  handler.SubmitScoreInput:
+    properties:
+      game_id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+      score:
+        example: 12345
+        minimum: 0
+        type: integer
+    required:
+    - game_id
+    - score
+    type: object
+  handler.TopPlayersInput:
+    properties:
+      game_id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+    required:
+    - game_id
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://www.example.com/support
+  description: API for online leaderboard service
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://example.com/terms/
+  title: OnlineLeadership API
+  version: "1.0"
+paths:
+  /admin/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new game with given name
+      parameters:
+      - description: Game input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateGameInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.GameIDResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Create a new game
+      tags:
+      - admin
+  /admin/games:
+    get:
+      consumes:
+      - application/json
+      description: Returns all games
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.GamesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Get list of games
+      tags:
+      - admin
+  /api/leaderboard/global:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated global leaderboard
+      parameters:
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      - default: 50
+        description: Limit
+        in: query
+        maximum: 100
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LeaderboardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get global leaderboard
+      tags:
+      - leaderboard
+  /api/leaderboard/my:
+    get:
+      consumes:
+      - application/json
+      description: Returns the rank of the authenticated user in the global leaderboard
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.RankResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user's rank
+      tags:
+      - leaderboard
+  /api/leaderboard/top:
+    post:
+      consumes:
+      - application/json
+      description: Returns the top players for a specified game
+      parameters:
+      - description: Game id
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.TopPlayersInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LeaderboardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get top players for a game
+      tags:
+      - leaderboard
+  /api/score/submit:
+    post:
+      consumes:
+      - application/json
+      description: Submit a user's score for a game
+      parameters:
+      - description: Score info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SubmitScoreInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.StatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Submit player's score
+      tags:
+      - score
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return access and refresh tokens
+      parameters:
+      - description: Login input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Register input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Register new user
+      tags:
+      - auth
+schemes:
+- http
+- https
+security:
+- ApiKeyAuth: []
+securityDefinitions:
+  ApiKeyAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

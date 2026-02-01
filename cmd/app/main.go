@@ -1,6 +1,24 @@
+// @title OnlineLeadership API
+// @version 1.0
+// @description API for online leaderboard service
+// @termsOfService http://example.com/terms/
+// @contact.name API Support
+// @contact.url http://www.example.com/support
+// @contact.email support@example.com
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+// @host localhost:8080
+// @BasePath /
+// @Security ApiKeyAuth
+// @schemes http https
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 package main
 
 import (
+	_ "OnlineLeadership/docs"
 	"OnlineLeadership/internal/infrastructure/auth"
 	"OnlineLeadership/internal/infrastructure/logger"
 	"OnlineLeadership/internal/infrastructure/postgres"
@@ -56,6 +74,10 @@ func main() {
 	}
 	tokenManager := auth.NewTokenManager(accessSecret, refreshSecret)
 	dbredis := redis.InitRedis()
+	if err := dbredis.Ping(context.Background()).Err(); err != nil {
+		log.Error(ctx, "redis connection error: %v", err)
+	}
+
 	repos := repository.NewRepository(db, dbredis, log)
 	services := usecase.NewService(repos, log, tokenManager)
 	handlers := handler.NewHandler(services, log)

@@ -19,8 +19,7 @@ func NewScoreHistoryRepo(db *sqlx.DB, log *logger.SlogLogger) *ScoreHistoryRepo 
 
 func (r *ScoreHistoryRepo) Save(ctx context.Context, userID uuid.UUID, gameID uuid.UUID, score int) error {
 	query := `
-		INSERT INTO score_history (id, user_id, game_id, score)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO score_history (id, user_id, game_id, score) VALUES ($1, $2, $3, $4)
 	`
 
 	_, err := r.db.ExecContext(
