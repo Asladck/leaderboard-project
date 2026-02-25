@@ -21,6 +21,7 @@ import (
 	_ "OnlineLeadership/docs"
 	"OnlineLeadership/internal/infrastructure/auth"
 	"OnlineLeadership/internal/infrastructure/logger"
+	"OnlineLeadership/internal/infrastructure/monitoring"
 	"OnlineLeadership/internal/infrastructure/postgres"
 	"OnlineLeadership/internal/infrastructure/redis"
 	"OnlineLeadership/internal/infrastructure/repository"
@@ -57,7 +58,7 @@ func main() {
 	log.Info(ctx, "db config",
 		"sslmode", viper.GetString("db.sslmode"),
 	)
-
+	monitoring.InitMetrics()
 	db, err := postgres.ConnectWithRetry(
 		ctx,
 		retryCfg,

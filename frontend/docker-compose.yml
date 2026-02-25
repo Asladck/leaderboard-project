@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    image: your-backend-image:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    # Add your backend environment variables and configuration here
+
+networks:
+  app-network:
+    driver: bridge

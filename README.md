@@ -1,442 +1,753 @@
 # OnlineLeadership API
-https://roadmap.sh/projects/realtime-leaderboard-system
-RESTful API service for managing game leaderboards with real-time ranking, score tracking, and user authentication.
 
-## Tech Stack
+> RESTful API сервис для управления игровыми таблицами лидеров с рейтингом в реальном времени, отслеживанием очков, аутентификацией пользователей и полноценным стеком мониторинга.
 
-- **Go 1.25** - Programming language
-- **Gin** - HTTP web framework
-- **PostgreSQL 16** - Primary database (user data, score history)
-- **Redis 7** - In-memory store (leaderboard rankings, sorted sets)
-- **JWT** - Authentication (access & refresh tokens)
-- **Swagger/OpenAPI** - API documentation (`swaggo/swag`)
-- **Docker & Docker Compose** - Containerization
-- **sqlx** - SQL query builder
-- **Viper** - Configuration management
-- **slog** - Structured logging
+---
 
-## Architecture
+## 🇷🇺 Русская версия
 
-The project follows **Clean Architecture** principles with clear layer separation:
+---
 
-```
-┌─────────────────────────────────────────┐
-│  HTTP Layer (Gin handlers)              │  ← DTOs use string IDs
-├─────────────────────────────────────────┤
-│  Use Case Layer (Business logic)        │  ← Uses uuid.UUID
-├─────────────────────────────────────────┤
-│  Domain Layer (Entities)                │  ← Pure domain models
-├─────────────────────────────────────────┤
-│  Repository Layer (Data access)         │  ← PostgreSQL + Redis
-└─────────────────────────────────────────┘
-```
+## Ключевые особенности
 
-### Layers
+- 🏆 Таблицы лидеров в реальном времени с использованием Redis Sorted Sets
+- 🔐 JWT аутентификация (access + refresh токены)
+- 📊 **Реализован полноценный стек наблюдаемости на основе Prometheus и Grafana** с мониторингом задержки на уровне отдельных endpoint'ов и отслеживанием ресурсов контейнеров
+- 🐳 Полная контейнеризация с Docker Compose
+- 🧱 Чистая архитектура (Clean Architecture) с чётким разделением слоёв
+- 📖 Документация API через Swagger UI
 
-- **`internal/interfaces/http/handler`** - HTTP handlers, request/response DTOs, Swagger annotations
-- **`internal/usecase`** - Business logic services (auth, admin, leaderboard, score)
-- **`internal/domain`** - Domain models (User, Game, LeaderboardUser)
-- **`internal/infrastructure`** - External dependencies (PostgreSQL, Redis, JWT, logger)
+---
 
-### ID Type Consistency
+## Технологический стек
 
-- **Domain/Service/Repository layers**: Use `uuid.UUID`
-- **HTTP layer (DTOs, requests)**: Use `string`
-- **Conversion**: Happens only at HTTP boundary (handlers)
+| Компонент | Технология |
+|---|---|
+| Язык | Go 1.25 |
+| HTTP фреймворк | Gin |
+| База данных | PostgreSQL 16 |
+| Кэш / Лидерборд | Redis 7 (Sorted Sets) |
+| Аутентификация | JWT (access + refresh) |
+| Документация API | Swagger (swaggo/swag) |
+| Мониторинг метрик | Prometheus |
+| Дашборды | Grafana |
+| Мониторинг контейнеров | cAdvisor |
+| Конфигурация | Viper (config.yml + .env) |
+| Логирование | slog (структурированные логи) |
+| Контейнеризация | Docker & Docker Compose |
 
-## Features
+---
 
-### Authentication
-- User registration with email and password
-- JWT-based authentication (access + refresh tokens)
-- Access token TTL: 30 minutes
-- Refresh token TTL: 7 days
-- Password hashing with bcrypt
+## Архитектура
 
-### Game Management
-- Create new games
-- List all available games
-
-### Score Tracking
-- Submit player scores for specific games
-- Persistent score history (PostgreSQL)
-- Automatic leaderboard updates (Redis sorted sets)
-
-### Leaderboards
-- Global leaderboard (all players across all games)
-- Per-game leaderboards
-- User rank retrieval
-- Pagination support (offset/limit)
-
-## API Documentation
-
-Swagger UI is available at: **http://localhost:8080/swagger/index.html**
-
-### Authentication
-
-Protected endpoints require JWT token in `Authorization` header:
+Проект построен по принципам **Clean Architecture** с чётким разделением ответственности между слоями:
 
 ```
-Authorization: Bearer <access_token>
+┌──────────────────────────────────────────────────────────┐
+│  HTTP Layer  (Gin handlers, DTO, Swagger, Middleware)    │
+│  internal/interfaces/http/handler/                       │
+│  → string IDs в DTO, конвертация UUID на границе слоя    │
+├──────────────────────────────────────────────────────────┤
+│  Use Case Layer  (Бизнес-логика)                         │
+│  internal/usecase/                                       │
+│  → Работает только с uuid.UUID                          │
+├──────────────────────────────────────────────────────────┤
+│  Domain Layer  (Сущности, интерфейсы)                    │
+│  internal/domain/                                        │
+│  → Чистые доменные модели без зависимостей               │
+├──────────────────────────────────────────────────────────┤
+│  Infrastructure Layer  (PostgreSQL, Redis, JWT, Logger)  │
+│  internal/infrastructure/                                │
+│  → Реализации репозиториев, внешние зависимости          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Endpoints
+### Правило типов ID
 
-#### Public Endpoints
-- `POST /auth/register` - Register new user
-- `POST /auth/login` - Login and receive tokens
-- `POST /admin/create` - Create a new game
-- `GET /admin/games` - List all games
+- **Domain / Service / Repository**: используют `uuid.UUID`
+- **HTTP слой (DTO, запросы)**: используют `string`
+- **Конвертация**: происходит **только** в handler'ах (`uuid.Parse`)
 
-#### Protected Endpoints (require JWT)
-- `POST /api/score/submit` - Submit player score
-- `GET /api/leaderboard/global` - Get global leaderboard
-- `GET /api/leaderboard/my` - Get current user's rank
-- `POST /api/leaderboard/top` - Get top players for a specific game
+---
 
-## Environment Variables
+## Наблюдаемость и мониторинг
 
-Create a `.env` file in the project root:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Docker Network                         │
+│                                                             │
+│  ┌──────────┐  /metrics   ┌────────────┐   PromQL          │
+│  │ Backend  │ ──────────► │ Prometheus │ ◄────────────────┐ │
+│  │  :8080   │             │   :9090    │                  │ │
+│  └──────────┘             └────────────┘                  │ │
+│                                    │                       │ │
+│  ┌──────────┐  /metrics            ▼                       │ │
+│  │ cAdvisor │ ──────────► ┌────────────┐  datasource:     │ │
+│  │  :8081   │             │  Grafana   │ ◄── prometheus:9090│
+│  └──────────┘             │   :3000    │                   │ │
+│                           └────────────┘                   │ │
+└─────────────────────────────────────────────────────────────┘
+```
 
-```bash
-# JWT Secrets (required)
-JWT_ACCESS_SECRET=your-secret-access-key-here
-JWT_REFRESH_SECRET=your-secret-refresh-key-here
+### Метрики приложения (Prometheus)
 
-# Database (optional, defaults in config.yml)
+Бэкенд экспортирует метрики по адресу `backend:8080/metrics`.
+
+| Метрика | Тип | Описание |
+|---|---|---|
+| `http_request_duration_seconds` | Histogram | Время обработки запроса по endpoint'у и методу |
+| `http_requests_total` | Counter | Общее количество запросов (метод, путь, статус) |
+| `jwt_auth_failures_total` | Counter | Количество ошибок JWT аутентификации |
+| `db_query_duration_seconds` | Histogram | Время выполнения запросов к PostgreSQL |
+| `redis_operation_duration_seconds` | Histogram | Время операций с Redis |
+
+### Мониторинг задержки (P95)
+
+Для анализа производительности используйте P95 латентность:
+
+```promql
+# P95 задержка для всех HTTP endpoint'ов
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path)
+)
+
+# P95 задержка запросов к PostgreSQL
+histogram_quantile(0.95,
+  sum(rate(db_query_duration_seconds_bucket[5m])) by (le)
+)
+
+# P95 задержка операций Redis
+histogram_quantile(0.95,
+  sum(rate(redis_operation_duration_seconds_bucket[5m])) by (le)
+)
+```
+
+### Мониторинг аутентификации JWT
+
+```promql
+# Скорость ошибок JWT за последние 5 минут
+rate(jwt_auth_failures_total[5m])
+
+# Суммарное количество ошибок JWT
+sum(jwt_auth_failures_total)
+```
+
+### Мониторинг endpoint'ов
+
+```promql
+# RPS (запросов в секунду) по endpoint'ам
+sum(rate(http_requests_total[1m])) by (path, method)
+
+# Количество ошибок 5xx
+sum(rate(http_requests_total{status=~"5.."}[5m])) by (path)
+
+# Количество ошибок 4xx
+sum(rate(http_requests_total{status=~"4.."}[5m])) by (path)
+```
+
+### Мониторинг контейнеров (cAdvisor)
+
+cAdvisor собирает метрики Docker-контейнеров и экспортирует их в Prometheus.
+
+```promql
+# CPU utilization по контейнерам
+sum(rate(container_cpu_usage_seconds_total{name!=""}[1m])) by (name)
+
+# Использование памяти по контейнерам
+sum(container_memory_usage_bytes{name!=""}) by (name)
+
+# Сетевой трафик (входящий)
+sum(rate(container_network_receive_bytes_total{name!=""}[1m])) by (name)
+```
+
+### Grafana дашборды
+
+Grafana доступна по адресу: **http://localhost:3000**
+
+- **Логин по умолчанию**: `admin` / `admin`
+- **Data source**: Prometheus (`http://prometheus:9090`)
+
+Рекомендуемые дашборды для импорта:
+- **Gin HTTP metrics** — RPS, задержка, коды ответов
+- **Go Runtime** — goroutines, GC, память (ID: `13240`)
+- **PostgreSQL** — время запросов, соединения
+- **Redis** — операции, hit rate
+- **cAdvisor** — CPU, RAM контейнеров (ID: `14282`)
+
+---
+
+## Сервисы Docker Compose
+
+| Сервис | Порт | Описание |
+|---|---|---|
+| `backend` | `8080` | Go приложение + `/metrics` endpoint |
+| `postgres` | `5432` | PostgreSQL 16 |
+| `redis` | `6379` | Redis 7 |
+| `prometheus` | `9090` | Prometheus (scrape: `backend:8080/metrics`, `cadvisor:8081`) |
+| `grafana` | `3000` | Grafana (datasource: `http://prometheus:9090`) |
+| `cadvisor` | `8081` | Container CPU/RAM мониторинг |
+
+---
+
+## Документация API
+
+Swagger UI: **http://localhost:8080/swagger/index.html**
+
+### Публичные endpoint'ы
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `POST` | `/auth/register` | Регистрация пользователя |
+| `POST` | `/auth/login` | Вход, получение токенов |
+| `POST` | `/admin/create` | Создание новой игры |
+| `GET` | `/admin/games` | Список всех игр |
+
+### Защищённые endpoint'ы (требуют `Authorization: Bearer <token>`)
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `POST` | `/api/score/submit` | Отправка очков |
+| `GET` | `/api/leaderboard/global` | Глобальный лидерборд |
+| `GET` | `/api/leaderboard/my` | Ранг текущего пользователя |
+| `POST` | `/api/leaderboard/top` | Топ игроков по игре |
+
+---
+
+## Переменные окружения
+
+Создайте файл `.env` в корне проекта:
+
+```env
+JWT_ACCESS_SECRET=your-access-secret-change-in-production
+JWT_REFRESH_SECRET=your-refresh-secret-change-in-production
 DB_PASSWORD=postgres
 ```
 
-### Configuration Files
+### config.yml (основная конфигурация)
 
-**`config.yml`** - Application configuration:
 ```yaml
 port: "8080"
 db:
   username: "postgres"
-  host: "postgres"      # Use "localhost" for local development
+  host: "postgres"       # "localhost" для локальной разработки
   port: 5432
   dbname: "leaderboard"
   sslmode: "disable"
 ```
 
-## Project Structure
+---
+
+## Запуск
+
+### Требования
+
+- Go 1.25+
+- Docker & Docker Compose
+
+### Вариант 1: Docker Compose (рекомендуется)
+
+```bash
+# 1. Создайте .env файл
+cp .env.example .env   # или создайте вручную
+
+# 2. Запустите все сервисы
+docker-compose up -d
+
+# 3. Проверьте статус
+docker-compose ps
+```
+
+**Доступные сервисы:**
+- API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger/index.html
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+- cAdvisor: http://localhost:8081
+
+```bash
+# Остановить сервисы
+docker-compose down
+
+# Остановить и удалить volumes
+docker-compose down -v
+```
+
+### Вариант 2: Локальная разработка
+
+```bash
+# 1. Запустите PostgreSQL и Redis
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=leaderboard postgres:16
+docker run -d -p 6379:6379 redis:7
+
+# 2. Установите зависимости
+go mod download
+
+# 3. Обновите config.yml: db.host = "localhost"
+
+# 4. Установите переменные окружения
+set JWT_ACCESS_SECRET=your-access-secret
+set JWT_REFRESH_SECRET=your-refresh-secret
+set DB_PASSWORD=postgres
+
+# 5. Сгенерируйте Swagger (при необходимости)
+swag init -g cmd/app/main.go -o ./docs
+
+# 6. Запустите приложение
+go run cmd/app/main.go
+```
+
+---
+
+## Структура проекта
 
 ```
 OnlineLeadership/
-├── cmd/
-│   └── app/
-│       └── main.go              # Application entry point
+├── cmd/app/main.go                    # Точка входа
+├── config/config.go                   # Конфигурация (Viper)
+├── config.yml                         # Настройки приложения
 ├── internal/
-│   ├── domain/                  # Domain models (User, Game, LeaderboardUser)
-│   ├── usecase/                 # Business logic services
+│   ├── domain/                        # Доменные модели и интерфейсы
+│   ├── usecase/                       # Бизнес-логика
 │   │   ├── auth/
 │   │   ├── admin/
 │   │   ├── leaderboard/
 │   │   └── score_history/
-│   ├── infrastructure/          # External dependencies
-│   │   ├── auth/                # JWT token manager
-│   │   ├── logger/              # Structured logging
-│   │   ├── postgres/            # Database connection & repositories
-│   │   └── redis/               # Redis client
-│   └── interfaces/
-│       └── http/
-│           ├── handler/         # HTTP handlers & DTOs
-│           └── middleware/      # Request ID, authentication
-├── migrations/                  # SQL migrations
-│   ├── 001_init.up.sql
-│   └── 001_init.down.sql
-├── docs/                        # Auto-generated Swagger docs
-├── config.yml                   # App configuration
-├── docker-compose.yml           # Docker orchestration
-├── Dockerfile                   # Container image
-└── go.mod                       # Go dependencies
+│   ├── infrastructure/
+│   │   ├── auth/                      # JWT менеджер
+│   │   ├── logger/                    # slog
+│   │   ├── monitoring/                # Prometheus метрики
+│   │   ├── postgres/                  # БД + репозитории
+│   │   └── redis/                     # Redis клиент
+│   └── interfaces/http/
+│       ├── handler/                   # Gin обработчики, DTO, Swagger
+│       └── middleware/                # Request ID, Auth, Metrics
+├── migrations/                        # SQL миграции
+├── monitoring/
+│   └── prometheus.yml                 # Конфигурация scrape
+├── docs/                              # Автогенерированная Swagger документация
+├── docker-compose.yml
+└── Dockerfile
 ```
 
-## Running the Application
+---
 
-### Prerequisites
-- Go 1.25+
-- PostgreSQL 16
-- Redis 7
-- Docker & Docker Compose (optional)
+## Схема базы данных
 
-### Option 1: Using Docker Compose (Recommended)
+**`users`** — `id (UUID)`, `username`, `email`, `password_hash`, `created_at`
 
-1. **Create `.env` file** with JWT secrets:
-```bash
-JWT_ACCESS_SECRET=your-secret-key-change-in-production
-JWT_REFRESH_SECRET=your-refresh-key-change-in-production
+**`games`** — `id (UUID)`, `name`
+
+**`score_history`** — `id (UUID)`, `user_id (FK)`, `game_id (FK)`, `score`, `created_at`
+
+**Redis Sorted Sets:**
+- `leaderboard:global` — глобальный рейтинг (member: user_id, score: сумма очков)
+- `leaderboard:game:{game_id}` — рейтинг по игре
+
+---
+
+## Распространённые ошибки
+
+| Ошибка | Причина | Решение |
+|---|---|---|
+| `JWT secrets are not set` | Не задан `.env` | Создайте `.env` с JWT секретами |
+| `db connect failed` | PostgreSQL недоступен | Проверьте хост в `config.yml` |
+| `401 Unauthorized` | Нет/истёк токен | Войдите заново, добавьте `Bearer ` |
+| `400 invalid UUID` | Неверный формат ID | Используйте UUID формат |
+| Swagger auth не работает | Не введён `Bearer ` | В Swagger UI: `Bearer <token>` |
+| `redis connection error` | Redis не запущен | `docker run -d -p 6379:6379 redis:7` |
+| Prometheus не видит метрики | Неверный scrape target | Проверьте `monitoring/prometheus.yml` |
+
+---
+
+## Рекомендации по безопасности
+
+- **JWT Secrets**: Используйте сильные случайные секреты (мин. 64 символа), никогда не коммитте в VCS
+- **HTTPS**: Используйте обратный прокси (Nginx/Traefik) с TLS в продакшене
+- **Rate Limiting**: Добавьте ограничение частоты запросов для публичных endpoints
+- **CORS**: Настройте CORS, если фронтенд обслуживается с другого домена
+- **Admin Routes**: Защитите маршруты `/admin/*` с помощью аутентификации
+- **Grafana**: Измените пароль администратора по умолчанию при первом входе
+- **Prometheus**: Ограничьте доступ к `/metrics` в продакшене (например, только для внутренней сети)
+- **Alerting**: Настройте Prometheus Alertmanager для оповещений об ошибках JWT и всплесках задержки
+
+---
+
+## Лицензия
+
+MIT
+
+## Поддержка
+
+По вопросам и проблемам создавайте issue в репозитории проекта.
+
+---
+
+---
+
+## 🇬🇧 English Version
+
+---
+
+# OnlineLeadership API
+
+> A production-grade RESTful API service for real-time gaming leaderboards with score tracking, JWT authentication, and a full observability stack.
+
+---
+
+## Key Features
+
+- 🏆 Real-time leaderboards powered by Redis Sorted Sets
+- 🔐 JWT authentication with access + refresh tokens
+- 📊 **Implemented a real-time observability stack using Prometheus and Grafana** with endpoint-level latency monitoring and container resource tracking via cAdvisor
+- 🐳 Full containerization with Docker Compose
+- 🧱 Clean Architecture with strict layer separation
+- 📖 API documentation via Swagger UI
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| Language | Go 1.25 |
+| HTTP Framework | Gin |
+| Database | PostgreSQL 16 |
+| Cache / Leaderboard | Redis 7 (Sorted Sets) |
+| Authentication | JWT (access + refresh) |
+| API Docs | Swagger (swaggo/swag) |
+| Metrics | Prometheus |
+| Dashboards | Grafana |
+| Container Monitoring | cAdvisor |
+| Configuration | Viper (config.yml + .env) |
+| Logging | slog (structured logs) |
+| Containerization | Docker & Docker Compose |
+
+---
+
+## Architecture
+
+The project follows **Clean Architecture** principles with strict separation of concerns:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  HTTP Layer  (Gin handlers, DTO, Swagger, Middleware)    │
+│  internal/interfaces/http/handler/                       │
+│  → string IDs in DTOs, UUID conversion at layer boundary │
+├──────────────────────────────────────────────────────────┤
+│  Use Case Layer  (Business Logic)                        │
+│  internal/usecase/                                       │
+│  → Works exclusively with uuid.UUID                     │
+├──────────────────────────────────────────────────────────┤
+│  Domain Layer  (Entities, Interfaces)                    │
+│  internal/domain/                                        │
+│  → Pure domain models with no external dependencies      │
+├──────────────────────────────────────────────────────────┤
+│  Infrastructure Layer  (PostgreSQL, Redis, JWT, Logger)  │
+│  internal/infrastructure/                                │
+│  → Repository implementations, external adapters         │
+└──────────────────────────────────────────────────────────┘
+```
+
+### ID Type Consistency Rule
+
+- **Domain / Service / Repository**: use `uuid.UUID`
+- **HTTP layer (DTOs, request params)**: use `string`
+- **Conversion**: happens **only** in handlers via `uuid.Parse`
+
+---
+
+## Observability & Monitoring
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Docker Network                         │
+│                                                             │
+│  ┌──────────┐  /metrics   ┌────────────┐   PromQL          │
+│  │ Backend  │ ──────────► │ Prometheus │ ◄────────────────┐ │
+│  │  :8080   │             │   :9090    │                  │ │
+│  └──────────┘             └────────────┘                  │ │
+│                                    │                       │ │
+│  ┌──────────┐  /metrics            ▼                       │ │
+│  │ cAdvisor │ ──────────► ┌────────────┐  datasource:     │ │
+│  │  :8081   │             │  Grafana   │ ◄── prometheus:9090│
+│  └──────────┘             │   :3000    │                   │ │
+│                           └────────────┘                   │ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Application Metrics (Prometheus)
+
+The backend exposes metrics at `backend:8080/metrics`.
+
+| Metric | Type | Description |
+|---|---|---|
+| `http_request_duration_seconds` | Histogram | Request processing time per endpoint and method |
+| `http_requests_total` | Counter | Total request count (method, path, status) |
+| `jwt_auth_failures_total` | Counter | JWT authentication failure count |
+| `db_query_duration_seconds` | Histogram | PostgreSQL query execution time |
+| `redis_operation_duration_seconds` | Histogram | Redis operation latency |
+
+### Latency Monitoring (P95)
+
+```promql
+# P95 latency for all HTTP endpoints
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path)
+)
+
+# P95 PostgreSQL query latency
+histogram_quantile(0.95,
+  sum(rate(db_query_duration_seconds_bucket[5m])) by (le)
+)
+
+# P95 Redis operation latency
+histogram_quantile(0.95,
+  sum(rate(redis_operation_duration_seconds_bucket[5m])) by (le)
+)
+```
+
+### JWT Authentication Monitoring
+
+```promql
+# JWT failure rate over last 5 minutes
+rate(jwt_auth_failures_total[5m])
+
+# Total JWT failure count
+sum(jwt_auth_failures_total)
+```
+
+### Endpoint Monitoring
+
+```promql
+# RPS (requests per second) per endpoint
+sum(rate(http_requests_total[1m])) by (path, method)
+
+# 5xx error rate
+sum(rate(http_requests_total{status=~"5.."}[5m])) by (path)
+
+# 4xx error rate
+sum(rate(http_requests_total{status=~"4.."}[5m])) by (path)
+```
+
+### Container Monitoring (cAdvisor)
+
+cAdvisor collects Docker container metrics and exposes them to Prometheus.
+
+```promql
+# CPU utilization per container
+sum(rate(container_cpu_usage_seconds_total{name!=""}[1m])) by (name)
+
+# Memory usage per container
+sum(container_memory_usage_bytes{name!=""}) by (name)
+
+# Inbound network traffic per container
+sum(rate(container_network_receive_bytes_total{name!=""}[1m])) by (name)
+```
+
+### Grafana Dashboards
+
+Grafana is available at: **http://localhost:3000**
+
+- **Default credentials**: `admin` / `admin`
+- **Data source**: Prometheus (`http://prometheus:9090`)
+
+Recommended dashboards to import:
+- **Gin HTTP Metrics** — RPS, latency, response codes
+- **Go Runtime** — goroutines, GC, memory (ID: `13240`)
+- **PostgreSQL** — query time, connections
+- **Redis** — operations, hit rate
+- **cAdvisor Docker** — CPU, RAM per container (ID: `14282`)
+
+---
+
+## Docker Compose Services
+
+| Service | Port | Description |
+|---|---|---|
+| `backend` | `8080` | Go application + `/metrics` endpoint |
+| `postgres` | `5432` | PostgreSQL 16 |
+| `redis` | `6379` | Redis 7 |
+| `prometheus` | `9090` | Prometheus (scrapes `backend:8080/metrics`, `cadvisor:8081`) |
+| `grafana` | `3000` | Grafana (datasource: `http://prometheus:9090`) |
+| `cadvisor` | `8081` | Container CPU/RAM monitoring |
+
+---
+
+## API Documentation
+
+Swagger UI: **http://localhost:8080/swagger/index.html**
+
+### Public Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/auth/register` | Register a new user |
+| `POST` | `/auth/login` | Login and obtain tokens |
+| `POST` | `/admin/create` | Create a new game |
+| `GET` | `/admin/games` | List all games |
+
+### Protected Endpoints (require `Authorization: Bearer <token>`)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/score/submit` | Submit player score |
+| `GET` | `/api/leaderboard/global` | Get global leaderboard |
+| `GET` | `/api/leaderboard/my` | Get current user rank |
+| `POST` | `/api/leaderboard/top` | Get top players for a game |
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+JWT_ACCESS_SECRET=your-access-secret-change-in-production
+JWT_REFRESH_SECRET=your-refresh-secret-change-in-production
 DB_PASSWORD=postgres
 ```
 
-2. **Start all services**:
+### config.yml
+
+```yaml
+port: "8080"
+db:
+  username: "postgres"
+  host: "postgres"       # Use "localhost" for local development
+  port: 5432
+  dbname: "leaderboard"
+  sslmode: "disable"
+```
+
+---
+
+## Running the Application
+
+### Option 1: Docker Compose (recommended)
+
 ```bash
+# 1. Create .env file
+# 2. Start all services
 docker-compose up -d
+
+# 3. Check service status
+docker-compose ps
 ```
 
-This will start:
-- Application server on `http://localhost:8080`
-- PostgreSQL on `localhost:5432`
-- Redis on `localhost:6379`
-- Automatic database migrations
+**Available services:**
+- API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger/index.html
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+- cAdvisor: http://localhost:8081
 
-3. **Access Swagger UI**:
-```
-http://localhost:8080/swagger/index.html
-```
-
-4. **Stop services**:
 ```bash
+# Stop services
 docker-compose down
+
+# Stop and remove volumes
+docker-compose down -v
 ```
 
 ### Option 2: Local Development
 
-1. **Install dependencies**:
 ```bash
-go mod download
-```
-
-2. **Start PostgreSQL and Redis** (manually or via Docker):
-```bash
+# 1. Start PostgreSQL and Redis
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=leaderboard postgres:16
 docker run -d -p 6379:6379 redis:7
-```
 
-3. **Run migrations**:
-```bash
-migrate -path ./migrations -database "postgres://postgres:postgres@localhost:5432/leaderboard?sslmode=disable" up
-```
+# 2. Install dependencies
+go mod download
 
-4. **Update `config.yml`** - change `host` to `localhost`:
-```yaml
-db:
-  host: "localhost"
-```
+# 3. Update config.yml: set db.host = "localhost"
 
-5. **Set environment variables**:
-```bash
-export JWT_ACCESS_SECRET="your-access-secret"
-export JWT_REFRESH_SECRET="your-refresh-secret"
-export DB_PASSWORD="postgres"
-```
+# 4. Set environment variables (Windows)
+set JWT_ACCESS_SECRET=your-access-secret
+set JWT_REFRESH_SECRET=your-refresh-secret
+set DB_PASSWORD=postgres
 
-6. **Generate Swagger docs** (if not present):
-```bash
+# 5. Regenerate Swagger docs (if needed)
 swag init -g cmd/app/main.go -o ./docs
-```
 
-7. **Run the application**:
-```bash
+# 6. Run the application
 go run cmd/app/main.go
 ```
 
-Server will start on `http://localhost:8080`
+---
 
-## Usage Examples
+## Project Structure
 
-### 1. Register a User
-```bash
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "email": "player1@example.com",
-    "password": "password123"
-  }'
+```
+OnlineLeadership/
+├── cmd/app/main.go                    # Entry point
+├── config/config.go                   # Configuration (Viper)
+├── config.yml                         # Application settings
+├── internal/
+│   ├── domain/                        # Domain models and interfaces
+│   ├── usecase/                       # Business logic services
+│   │   ├── auth/
+│   │   ├── admin/
+│   │   ├── leaderboard/
+│   │   └── score_history/
+│   ├── infrastructure/
+│   │   ├── auth/                      # JWT token manager
+│   │   ├── logger/                    # slog structured logger
+│   │   ├── monitoring/                # Prometheus metric definitions
+│   │   ├── postgres/                  # DB connection + repositories
+│   │   └── redis/                     # Redis client
+│   └── interfaces/http/
+│       ├── handler/                   # Gin handlers, DTOs, Swagger
+│       └── middleware/                # Request ID, Auth, Metrics
+├── migrations/                        # SQL migration files
+├── monitoring/
+│   └── prometheus.yml                 # Prometheus scrape configuration
+├── docs/                              # Auto-generated Swagger docs
+├── docker-compose.yml
+└── Dockerfile
 ```
 
-Response:
-```json
-{
-  "user_id": "123e4567-e89b-12d3-a456-426614174000"
-}
-```
-
-### 2. Login
-```bash
-curl -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "password": "password123"
-  }'
-```
-
-Response:
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### 3. Create a Game
-```bash
-curl -X POST http://localhost:8080/admin/create \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Chess"
-  }'
-```
-
-Response:
-```json
-{
-  "game_id": "987fcdeb-51a2-43f7-9876-543210fedcba"
-}
-```
-
-### 4. Submit Score (Protected)
-```bash
-curl -X POST http://localhost:8080/api/score/submit \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -d '{
-    "game_id": "987fcdeb-51a2-43f7-9876-543210fedcba",
-    "score": 1500
-  }'
-```
-
-Response:
-```json
-{
-  "status": "ok"
-}
-```
-
-### 5. Get Global Leaderboard (Protected)
-```bash
-curl -X GET "http://localhost:8080/api/leaderboard/global?offset=0&limit=10" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Response:
-```json
-{
-  "data": [
-    {
-      "user_id": "123e4567-e89b-12d3-a456-426614174000",
-      "score": 1500,
-      "rank": 1
-    }
-  ]
-}
-```
-
-### 6. Get My Rank (Protected)
-```bash
-curl -X GET http://localhost:8080/api/leaderboard/my \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Response:
-```json
-{
-  "rank": 1
-}
-```
-
-## Common Errors & Troubleshooting
-
-### 1. "JWT secrets are not set"
-**Solution**: Ensure `.env` file contains `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
-
-### 2. "db connect failed"
-**Causes**:
-- PostgreSQL not running
-- Wrong credentials
-- Wrong host (use `localhost` for local dev, `postgres` for Docker)
-
-**Solution**: Check PostgreSQL connection and update `config.yml` or environment variables
-
-### 3. "401 Unauthorized" on protected endpoints
-**Causes**:
-- Missing `Authorization` header
-- Invalid or expired token
-- Wrong token format
-
-**Solution**: 
-- Include header: `Authorization: Bearer <access_token>`
-- Login again to get a fresh token
-- Ensure "Bearer " prefix is included
-
-### 4. "400 Bad Request - invalid game_id format"
-**Cause**: Invalid UUID format in request body
-
-**Solution**: Use valid UUID format (e.g., `123e4567-e89b-12d3-a456-426614174000`)
-
-### 5. Swagger authentication not working
-**Solution**: 
-1. Click "Authorize" button in Swagger UI
-2. Enter: `Bearer <your_access_token>` (include "Bearer " prefix)
-3. Click "Authorize" then "Close"
-
-### 6. "redis connection error"
-**Cause**: Redis server not running
-
-**Solution**: 
-```bash
-docker run -d -p 6379:6379 redis:7
-```
+---
 
 ## Database Schema
 
-### Tables
+**`users`** — `id (UUID)`, `username`, `email`, `password_hash`, `created_at`
 
-**`users`**
-- `id` (UUID, PK)
-- `username` (TEXT, UNIQUE)
-- `password_hash` (TEXT)
-- `email` (TEXT, UNIQUE)
-- `created_at` (TIMESTAMP)
+**`games`** — `id (UUID)`, `name`
 
-**`games`**
-- `id` (UUID, PK)
-- `name` (TEXT, UNIQUE)
+**`score_history`** — `id (UUID)`, `user_id (FK)`, `game_id (FK)`, `score`, `created_at`
 
-**`score_history`**
-- `id` (UUID, PK)
-- `user_id` (UUID, FK → users)
-- `game_id` (UUID, FK → games)
-- `score` (INT)
-- `created_at` (TIMESTAMP)
+**Redis Sorted Sets:**
+- `leaderboard:global` — global ranking (member: user_id, score: total points)
+- `leaderboard:game:{game_id}` — per-game ranking
 
-### Redis Data Structures
+---
 
-- **Global leaderboard**: Sorted set `leaderboard:global`
-  - Members: user IDs
-  - Scores: total points
+## Common Errors & Troubleshooting
 
-- **Game leaderboards**: Sorted set `leaderboard:game:{game_id}`
-  - Members: user IDs
-  - Scores: game-specific points
+| Error | Cause | Solution |
+|---|---|---|
+| `JWT secrets are not set` | Missing `.env` file | Create `.env` with JWT secrets |
+| `db connect failed` | PostgreSQL unavailable | Check host in `config.yml` |
+| `401 Unauthorized` | Missing/expired token | Re-login, add `Bearer ` prefix |
+| `400 invalid UUID` | Malformed ID format | Use valid UUID format |
+| Swagger auth fails | Missing `Bearer ` prefix | In Swagger UI: enter `Bearer <token>` |
+| `redis connection error` | Redis not running | `docker run -d -p 6379:6379 redis:7` |
+| Prometheus no metrics | Wrong scrape target | Check `monitoring/prometheus.yml` |
 
-## Development
+---
 
-### Regenerate Swagger Documentation
-```bash
-swag init -g cmd/app/main.go -o ./docs
-```
+## Production Recommendations
 
-### Run Tests
-```bash
-go test ./...
-```
+- **JWT Secrets**: Use strong random secrets (min. 64 chars), never commit to VCS
+- **HTTPS**: Use a reverse proxy (Nginx/Traefik) with TLS in production
+- **Rate Limiting**: Add rate limiting middleware for public endpoints
+- **CORS**: Configure CORS if frontend is served from a different domain
+- **Admin Routes**: Protect `/admin/*` endpoints with authentication
+- **Grafana**: Change default admin password on first login
+- **Prometheus**: Restrict `/metrics` endpoint access in production (e.g., internal network only)
+- **Alerting**: Set up Prometheus Alertmanager for JWT failure and latency spike alerts
 
-### Build Binary
-```bash
-go build -o bin/app cmd/app/main.go
-```
-
-## Security Considerations
-
-- **Production**: Change JWT secrets to strong, random values
-- **HTTPS**: Use HTTPS in production (configure reverse proxy)
-- **Rate Limiting**: Implement rate limiting for public endpoints
-- **CORS**: Configure CORS if serving frontend from different origin
-- **Admin Endpoints**: Add authentication/authorization to `/admin/*` routes
+---
 
 ## License
 
@@ -444,5 +755,5 @@ MIT
 
 ## Support
 
-For issues and questions, open an issue on the project repository.
+For questions and issues, please open an issue in the project repository.
 
