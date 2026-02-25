@@ -1,0 +1,139 @@
+.page-container {
+  width: 100%;
+  color: #e5e7eb;
+}
+
+.page-container h1 {
+  margin: 0 0 2rem 0;
+  color: #f9fafb;
+}
+
+.error-message {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #9ca3af;
+  font-size: 1.1rem;
+}
+
+.leaderboard-table {
+  background: rgba(10, 14, 22, 0.72);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.8);
+  margin-bottom: 2rem;
+  backdrop-filter: blur(18px);
+  margin-bottom: 2rem;
+  border: 1px solid rgba(55, 65, 81, 0.55);
+}
+
+.leaderboard-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table thead {
+  background: rgba(17, 24, 39, 0.65);
+  color: #e5e7eb;
+}
+
+.leaderboard-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.leaderboard-table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.8);
+  font-size: 0.95rem;
+}
+
+.leaderboard-table tbody tr:hover {
+  background-color: rgba(31, 41, 55, 0.9);
+  transition: background-color 0.18s ease-out, transform 0.18s ease-out;
+  transform: translateY(-1px);
+}
+
+.leaderboard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.username-cell {
+  font-weight: 500;
+  color: #e5e7eb;
+}
+
+.score-cell {
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.pagination-btn {
+  padding: 0.5rem 1rem;
+  background: rgba(99, 102, 241, 0.22);
+  color: #f9fafb;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out, filter 0.1s ease-out;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 18px 40px rgba(59, 130, 246, 0.45);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination-info {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.success-message {
+  background-color: #ecfdf5;
+  color: #065f46;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #a7f3d0;
+}
+
+@media (max-width: 768px) {
+  .leaderboard-table {
+    overflow-x: auto;
+  }
+
+  .leaderboard-table table {
+    min-width: 600px;
+  }
+}

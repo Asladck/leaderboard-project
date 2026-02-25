@@ -2,7 +2,10 @@ package handler
 
 import (
 	"OnlineLeadership/internal/infrastructure/logger"
+	"OnlineLeadership/internal/interfaces/http/middleware"
 	"OnlineLeadership/internal/usecase"
+	"github.com/gin-contrib/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gin-gonic/gin"
 	files "github.com/swaggo/files"
@@ -21,8 +24,14 @@ func NewHandler(service *usecase.Service, log *logger.SlogLogger) *Handler {
 func (h *Handler) InitRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(middleware.PrometheusMiddleware())
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(files.Handler))
-
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:3000"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders: []string{"Authorization", "Content-Type"},
+	}))
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	// Auth endpoints
 	auth := r.Group("/auth")
 	{

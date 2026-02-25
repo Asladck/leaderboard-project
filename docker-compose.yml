@@ -1,14 +1,26 @@
 services:
-  app:
-    build: .
-    container_name: leaderboard-app
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: leaderboard-frontend
     ports:
-      - "8080:8080"
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    build: .
+    container_name: leaderboard-backend
+    ports:
+      - "8080:8080" # для swagger и отладки
     env_file:
       - .env
     depends_on:
       - postgres
       - redis
+      - migrate
     restart: always
 
   postgres:
@@ -38,12 +50,42 @@ services:
       - postgres
     volumes:
       - ./migrations:/migrations
-    command: [
-      "-path", "/migrations",
-      "-database",
-      "postgres://postgres:postgres@postgres:5432/leaderboard?sslmode=disable",
-      "up"
-    ]
+    command:
+      [
+        "-path", "/migrations",
+        "-database",
+        "postgres://postgres:postgres@postgres:5432/leaderboard?sslmode=disable",
+        "up"
+      ]
 
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+  
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8085:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
 volumes:
   postgres_data:

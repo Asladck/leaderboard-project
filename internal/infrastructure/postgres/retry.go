@@ -14,11 +14,7 @@ type RetryConfig struct {
 	Timeout     time.Duration
 }
 
-func ConnectWithRetry(
-	ctx context.Context,
-	cfg RetryConfig,
-	username, password, host, port, dbname, sslmode string,
-) (*sqlx.DB, error) {
+func ConnectWithRetry(ctx context.Context, cfg RetryConfig, username, password, host, port, dbname, sslmode string) (*sqlx.DB, error) {
 
 	deadline := time.Now().Add(cfg.Timeout)
 	attempt := 1
